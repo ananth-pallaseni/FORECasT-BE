@@ -1,4 +1,4 @@
-# FORECasT-BE
+# FORECasT-BE
 
 A tool for predicting guide efficacy for base editors.
 
