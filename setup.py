@@ -18,4 +18,10 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    install_requires=[
+        'numpy',
+        'pandas',
+        'sklearn>=0.20',
+        'Biopython>=1.73'.
+    ]
 )
