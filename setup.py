@@ -22,6 +22,6 @@ setuptools.setup(
         'numpy',
         'pandas',
         'sklearn>=0.20',
-        'Biopython>=1.73'.
+        'biopython>=1.73',
     ]
 )
