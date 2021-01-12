@@ -21,7 +21,7 @@ setuptools.setup(
     install_requires=[
         'numpy',
         'pandas',
-        'sklearn>=0.20',
+        'scikit-learn>=0.22',
         'biopython>=1.73',
     ]
 )
