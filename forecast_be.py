@@ -110,8 +110,7 @@ def predict(target_seq, mean=None, std=None):
     
     # Rescale if required
     if (mean is not None) and (std is not None):
-        predictions = [(pred + mean)*std for pred in predictions]
-        predictions = [expit(pred) for pred in predictions]
+        predictions = [(pred *std)+mean for pred in predictions]
         
     ret = [(pos, pred) for pos, pred in zip(POS_LIST, predictions)]
     
