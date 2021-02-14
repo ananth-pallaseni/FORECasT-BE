@@ -15,6 +15,17 @@ except:
     raise FileNotFoundError(f'Could not find saved models. Looked in: {MODEL_DIR}')
 POS_MODELS = []
 POS_LIST = []
+POS_FRACS = {
+    2: 0.05184948248657137,
+    3: 0.19673314654134325,
+    4: 0.443757534968822,
+    5: 0.9119183639518773,
+    6: 1.0,
+    7: 0.7846071775331374,
+    8: 0.41387793695191166,
+    9: 0.14388146489658163,
+    10: 0.07095196797688848
+}
 
 def load_models():
     global POS_MODELS
@@ -102,13 +113,15 @@ def featurize_20nt_target(target_seq):
 
     return feature_labels, features
 
-def scale_zscores(zscores, mean, std):
+def scale_zscores(zscores, pos_list, mean, std):
     scaled = []
-    for z in zscores:
+    for z, pos in zip(zscores, pos_list):
+        mean_frac = POS_FRACS[pos]
+        pos_mean = mean * mean_frac
         if (z is None) or np.isnan(z):
             s = z 
         else:
-            s = (z * std) + mean
+            s = (z * std) + pos_mean
             s = np.clip(s, 0, 1)
         scaled.append(s)
     return scaled
@@ -124,7 +137,7 @@ def predict(target_seq, mean=None, std=None):
     
     # Rescale if required
     if (mean is not None) and (std is not None):
-        predictions = scale_zscores(predictions, mean, std)
+        predictions = scale_zscores(predictions, POS_LIST, mean, std)
         
     ret = [(pos, pred) for pos, pred in zip(POS_LIST, predictions)]
     
@@ -146,7 +159,7 @@ def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None):
 
     # Scale if required
     if (mean is not None) and (std is not None):
-        scaled_predictions = [scale_zscores(p, mean, std) for p in zscore_predictions]
+        scaled_predictions = [scale_zscores(p, POS_LIST, mean, std) for p in zscore_predictions]
         scaled_df = pd.DataFrame(scaled_predictions, index=guides, columns=[f'Pos {pos} Scaled' for pos in POS_LIST])
         df = pd.concat([df, scaled_df], axis=1)
         df['Mean'] = mean
@@ -158,10 +171,6 @@ def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None):
         df.to_csv(output_path)
 
     return df
-
-
-
-    
 
 
 load_models()
