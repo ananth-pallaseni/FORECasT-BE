@@ -71,13 +71,6 @@ def nucleotide_features(seq):
         for b in all_nucs:
             feature_labels.append(f'{b} at pos {pos+1}')
             features.append(1 if nuc == b else 0)
-            
-    # dinucleotides 
-    for pos in range(20):
-        if pos < 19:
-            for dn in all_dinucs:
-                feature_labels.append(f'{dn} at pos {pos+1}')
-                features.append(1 if seq[pos:pos+2] == dn else 0)
     
     return features, feature_labels
 
@@ -90,10 +83,6 @@ def featurize_20nt_target(target_seq):
         feature_labels.append(f'{nuc} count')
         features.append(sum([n == nuc for n in target_seq]))
 
-    # target GC content
-    feature_labels.append('GC content')
-    features.append(sum([n in 'GC' for n in target_seq])/len(target_seq))
-
     # nucleotide features
     nuc_features, nuc_labels = nucleotide_features(target_seq)
     features += nuc_features
@@ -102,14 +91,6 @@ def featurize_20nt_target(target_seq):
     # melting temperatures
     features.append(mt.Tm_NN(target_seq))
     feature_labels.append('Melting Temperature')
-    for i in range(0, 16):
-        features.append(mt.Tm_NN(target_seq[i:i+5]))
-        feature_labels.append(f'Melting Temperatute {i+1}-{i+5}')
-
-    # Microhomology
-    max_mh_len, max_dist_between_mh = find_microhomology_about_cutsite(target_seq, pam=20, window=20)
-    feature_labels += ['Max MH Length', 'Max Distance Between MH']
-    features += [max_mh_len, max_dist_between_mh]
 
     return feature_labels, features
 
