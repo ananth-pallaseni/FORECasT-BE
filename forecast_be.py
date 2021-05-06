@@ -146,9 +146,8 @@ def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None, edito
         editor = 'BE4'
     elif editor not in POS_MODELS:
         raise ValueError(f'Unknown editor: {editor}')
-    else:
-        pos_models = POS_MODELS[editor]['pos_models']
-        pos_list = POS_MODELS[editor]['pos_list']
+    pos_models = POS_MODELS[editor]['pos_models']
+    pos_list = POS_MODELS[editor]['pos_list']
 
     # Predict per position for each guide
     zscore_predictions = []
