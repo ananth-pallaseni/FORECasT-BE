@@ -25,6 +25,14 @@ POS_FRACS = {
     9: 0.14388146489658163,
     10: 0.07095196797688848
 }
+EDITOR_TARGET_BASE = {
+    'BE4': 'C',
+    'FNLS': 'C',
+    'CBE': 'C',
+    'ABE8e': 'A',
+    'ABE20m': 'A',
+    'ABE': 'A'
+}
 
 def load_models():
     global POS_MODELS
@@ -138,8 +146,9 @@ def predict(target_seq, mean=None, std=None, editor=None):
         
     ret = [(pos, pred) for pos, pred in zip(pos_list, predictions)]
     
-    # Overwrite predictions where there is no C at position
-    ret = [(pos, pred) if target_seq[pos-1] == 'C' else (pos, None) for pos, pred in zip(pos_list, predictions)]
+    # Overwrite predictions where there is no target base at position
+    target_base = EDITOR_TARGET_BASE[editor]
+    ret = [(pos, pred) if target_seq[pos-1] == target_base else (pos, None) for pos, pred in zip(pos_list, predictions)]
     return ret
 
 def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None, editor=None):
