@@ -30,6 +30,7 @@ def load_models():
     global POS_MODELS
     editors = [os.path.basename(d) for d in glob.glob(MODEL_DIR + '/*')]
     for editor in editors:
+        print(f'Loading models for {editor}')
         model_paths = sorted(glob.glob(MODEL_DIR + f'{editor}/*'), key=lambda x: int(x.split('.')[0].split('_')[-1]))
         pos_list = []
         pos_models = []
@@ -41,6 +42,7 @@ def load_models():
         POS_MODELS[editor] = {}
         POS_MODELS[editor]['pos_list'] = pos_list
         POS_MODELS[editor]['pos_models'] = pos_models
+    print(f'Finished loading models')
 
 # Microhomology features
 def generate_microhomology_matrix(seq):
