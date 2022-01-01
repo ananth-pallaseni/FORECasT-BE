@@ -14,6 +14,7 @@ try:
 except:
     raise FileNotFoundError(f'Could not find saved models. Looked in: {MODEL_DIR}')
 POS_MODELS = {}
+TOTAL_EFFICIENCY_MODELS = {}
 POS_FRACS = {
     2: 0.05184948248657137,
     3: 0.19673314654134325,
@@ -36,10 +37,11 @@ EDITOR_TARGET_BASE = {
 
 def load_models():
     global POS_MODELS
+    global TOTAL_EFFICIENCY_MODELS
     editors = [os.path.basename(d) for d in glob.glob(MODEL_DIR + '/*')]
     for editor in editors:
         print(f'Loading models for {editor}')
-        model_paths = sorted(glob.glob(MODEL_DIR + f'{editor}/*'), key=lambda x: int(x.split('.')[0].split('_')[-1]))
+        model_paths = sorted(glob.glob(MODEL_DIR + f'{editor}/pos*'), key=lambda x: int(x.split('.')[0].split('_')[-1]))
         pos_list = []
         pos_models = []
         for path in model_paths:
@@ -50,6 +52,9 @@ def load_models():
         POS_MODELS[editor] = {}
         POS_MODELS[editor]['pos_list'] = pos_list
         POS_MODELS[editor]['pos_models'] = pos_models
+
+        TOTAL_EFFICIENCY_MODELS[editor] = load(glob.glob(MODEL_DIR + f'{editor}/global*')[0])
+
     print(f'Finished loading models')
 
 # Microhomology features
@@ -131,7 +136,7 @@ def predict(target_seq, mean=None, std=None, editor=None):
 
     # Get models for editor
     if editor is None:
-        editor = 'BE4'
+        editor = 'CBE'
     elif editor not in POS_MODELS:
         raise ValueError(f'Unknown editor: {editor}')
     pos_models = POS_MODELS[editor]['pos_models']
@@ -150,6 +155,29 @@ def predict(target_seq, mean=None, std=None, editor=None):
     target_base = EDITOR_TARGET_BASE[editor]
     ret = [(pos, pred) if target_seq[pos-1] == target_base else (pos, None) for pos, pred in zip(pos_list, predictions)]
     return ret
+
+def predict_total(target_seq, mean=None, std=None, editor=None):
+    if len(target_seq) != 20:
+        raise ValueError(f'Input sequence is {len(target_seq)}, but require 20')
+    feature_labels, features = featurize_20nt_target(target_seq)
+    features = np.array(features).reshape(1, -1)
+
+    # Get model for editor
+    if editor is None:
+        editor = 'CBE'
+    elif editor not in POS_MODELS:
+        raise ValueError(f'Unknown editor: {editor}')
+    model = TOTAL_EFFICIENCY_MODELS[editor]
+
+    prediction = model.predict(features)[0]
+
+    # Rescale if required
+    if (mean is not None) and (std is not None):
+        prediction = scale_zscores([prediction], [6], mean, std)[0]
+
+    return prediction
+
+
 
 def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None, editor=None):
     # Get models for editor
