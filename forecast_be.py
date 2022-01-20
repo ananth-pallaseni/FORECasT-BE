@@ -194,7 +194,7 @@ def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None, edito
     for record in SeqIO.parse(fasta_path, 'fasta'):
         if (len(record.seq) != 20) or ('N' in record.seq):
             continue
-        preds = [pred for pos, pred in predict(record.seq)]
+        preds = [pred for pos, pred in predict(record.seq, editor=editor)]
         zscore_predictions.append(preds)
         guides.append(record.id)
 
