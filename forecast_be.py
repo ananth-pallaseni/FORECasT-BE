@@ -182,7 +182,7 @@ def predict_total(target_seq, mean=None, std=None, editor=None):
 def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None, editor=None):
     # Get models for editor
     if editor is None:
-        editor = 'BE4'
+        editor = 'CBE'
     elif editor not in POS_MODELS:
         raise ValueError(f'Unknown editor: {editor}')
     pos_models = POS_MODELS[editor]['pos_models']
