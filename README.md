@@ -6,6 +6,15 @@ Input is a 20 nucletoide guide sequence (positions 1-20 where the PAM starts at 
 
 Output is a set of predictions for on-target base editing efficacy at positions 3-10 in the guide.
 
+# Installation
+First download the package:
+
+```git clone https://github.com/ananth-pallaseni/FORECasT-BE.git```
+
+Then run the following command inside the forecast-be directory:
+
+```pip install -e .```
+
 # Usage
 ```python
 import forecast_be
