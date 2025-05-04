@@ -80,7 +80,7 @@ def find_microhomology_about_cutsite(seq, pam=20, window=20):
     max_dist_between_mh = mh_mat.shape[0]-x + y#cutsite + y - x
     return max_mh_len, max_dist_between_mh
 
-all_nucs = ['A', 'C', 'T', 'G']
+all_nucs = ['G', 'A', 'C', 'T']
 all_dinucs = [f'{a}{b}' for a in all_nucs for b in all_nucs]
 def nucleotide_features(seq):
     feature_labels = []
