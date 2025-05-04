@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="forecast_be", 
-    version="0.2",
+    version="1.0",
     author="Ananth Pallaseni",
     author_email="ap32@sanger.ac.uk",
     description="Tools to predict base editor efficacy",
@@ -21,7 +21,7 @@ setuptools.setup(
     install_requires=[
         'numpy',
         'pandas',
-        'scikit-learn==0.23',
         'biopython>=1.73',
+        'xgboost'
     ]
 )

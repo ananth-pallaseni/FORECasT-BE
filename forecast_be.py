@@ -1,6 +1,5 @@
 import glob, os
-from joblib import load
-from sklearn.ensemble import GradientBoostingRegressor
+import xgboost as xgb
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
@@ -27,13 +26,23 @@ POS_FRACS = {
     10: 0.07095196797688848
 }
 EDITOR_TARGET_BASE = {
-    'BE4': 'C',
-    'FNLS': 'C',
     'CBE': 'C',
-    'ABE8e': 'A',
-    'ABE20m': 'A',
     'ABE': 'A'
 }
+all_nucs = ['G', 'A', 'C', 'T']
+all_dinucs = [f'{a}{b}' for a in all_nucs for b in all_nucs]
+
+class XGBWrapper:
+    def __init__(self):
+        self.model = xgb.Booster()
+    
+    def load(self, path):
+        self.model.load_model(path)
+    
+    def predict(self, x): 
+        dmat = xgb.DMatrix(x)
+        return self.model.predict(dmat)
+        
 
 def load_models():
     global POS_MODELS
@@ -46,14 +55,19 @@ def load_models():
         pos_models = []
         for path in model_paths:
             pos = int(path.split('.')[0].split('_')[-1])
-            model = load(path)
+            model = XGBWrapper()
+            model.load(path)
             pos_list.append(pos)
             pos_models.append(model)
         POS_MODELS[editor] = {}
         POS_MODELS[editor]['pos_list'] = pos_list
         POS_MODELS[editor]['pos_models'] = pos_models
 
-        TOTAL_EFFICIENCY_MODELS[editor] = load(glob.glob(MODEL_DIR + f'{editor}/global*')[0])
+        # Load total efficiency model
+        total_model_path = glob.glob(MODEL_DIR + f'{editor}/total*')[0]
+        total_model = XGBWrapper()
+        total_model.load(total_model_path)
+        TOTAL_EFFICIENCY_MODELS[editor] = total_model
 
     print(f'Finished loading models')
 
@@ -80,8 +94,6 @@ def find_microhomology_about_cutsite(seq, pam=20, window=20):
     max_dist_between_mh = mh_mat.shape[0]-x + y#cutsite + y - x
     return max_mh_len, max_dist_between_mh
 
-all_nucs = ['G', 'A', 'C', 'T']
-all_dinucs = [f'{a}{b}' for a in all_nucs for b in all_nucs]
 def nucleotide_features(seq):
     feature_labels = []
     features = []
@@ -128,11 +140,12 @@ def scale_zscores(zscores, pos_list, mean, std):
         scaled.append(s)
     return scaled
 
+
 def predict(target_seq, mean=None, std=None, editor=None):
     if len(target_seq) != 20:
         raise ValueError(f'Input sequence is {len(target_seq)}, but require 20')
     feature_labels, features = featurize_20nt_target(target_seq)
-    features = np.array(features).reshape(1, -1)
+    features = pd.DataFrame([features], columns=feature_labels) 
 
     # Get models for editor
     if editor is None:
@@ -160,7 +173,7 @@ def predict_total(target_seq, mean=None, std=None, editor=None):
     if len(target_seq) != 20:
         raise ValueError(f'Input sequence is {len(target_seq)}, but require 20')
     feature_labels, features = featurize_20nt_target(target_seq)
-    features = np.array(features).reshape(1, -1)
+    features = pd.DataFrame([features], columns=feature_labels)
 
     # Get model for editor
     if editor is None:
