@@ -1,19 +1,26 @@
 import glob, os
 import xgboost as xgb
+import numpy as np 
+import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
-import numpy as np 
-import pandas as pd
 
+# Model locaton
 PACKAGE_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 MODEL_DIR = PACKAGE_DIRECTORY + '/saved_models/'
 try:
     assert os.path.exists(MODEL_DIR)
 except:
     raise FileNotFoundError(f'Could not find saved models. Looked in: {MODEL_DIR}')
+
+# Models for each position
 POS_MODELS = {}
+
+# Models for total editing rate
 TOTAL_EFFICIENCY_MODELS = {}
+
+# The mean editing rate parameter is multiplied by these factors to get the editing rate at each position
 POS_FRACS = {
     2: 0.05184948248657137,
     3: 0.19673314654134325,
@@ -25,13 +32,17 @@ POS_FRACS = {
     9: 0.14388146489658163,
     10: 0.07095196797688848
 }
+
+# Map from editor to target base
 EDITOR_TARGET_BASE = {
     'CBE': 'C',
     'ABE': 'A'
 }
-all_nucs = ['G', 'A', 'C', 'T']
-all_dinucs = [f'{a}{b}' for a in all_nucs for b in all_nucs]
 
+# All valid nucleotides
+ALL_NUCS = ['G', 'A', 'C', 'T']
+
+# Wrapper class around xgboost to mimic the releant parts of the sklearn interface without dealing with package version mismatches between xgboost and sklearn
 class XGBWrapper:
     def __init__(self):
         self.model = xgb.Booster()
@@ -43,7 +54,7 @@ class XGBWrapper:
         dmat = xgb.DMatrix(x)
         return self.model.predict(dmat)
         
-
+# Load all positional and total models
 def load_models():
     global POS_MODELS
     global TOTAL_EFFICIENCY_MODELS
@@ -53,6 +64,8 @@ def load_models():
         model_paths = sorted(glob.glob(MODEL_DIR + f'{editor}/pos*'), key=lambda x: int(x.split('.')[0].split('_')[-1]))
         pos_list = []
         pos_models = []
+
+        # Load model for each position
         for path in model_paths:
             pos = int(path.split('.')[0].split('_')[-1])
             model = XGBWrapper()
@@ -71,29 +84,7 @@ def load_models():
 
     print(f'Finished loading models')
 
-# Microhomology features
-def generate_microhomology_matrix(seq):
-    base_eq_mat = np.zeros((len(seq), len(seq)))
-    for i in list(range(len(seq)))[::-1]:
-        for j in list(range(len(seq)))[::-1]:
-            eq = seq[i] == seq[j]
-            if eq:
-                base_eq_mat[i, j] = 1
-                if (i < len(seq)-1) and (j < len(seq)-1):
-                    base_eq_mat[i, j] += base_eq_mat[i+1, j+1]
-    cols = [s for s in seq]
-    rows = [s for s in seq]
-    bbb = pd.DataFrame(base_eq_mat, columns=cols, index=rows)
-    return bbb
-
-def find_microhomology_about_cutsite(seq, pam=20, window=20):
-    cutsite = pam-3
-    mh_mat = generate_microhomology_matrix(seq).iloc[max(0, cutsite-window):cutsite, cutsite:cutsite+window]
-    x, y = np.unravel_index(np.argmax(mh_mat.values, axis=None), mh_mat.shape)
-    max_mh_len = mh_mat.iloc[x, y]
-    max_dist_between_mh = mh_mat.shape[0]-x + y#cutsite + y - x
-    return max_mh_len, max_dist_between_mh
-
+# One hot encode each nucleotide in a sequence
 def nucleotide_features(seq):
     feature_labels = []
     features = []
@@ -101,18 +92,19 @@ def nucleotide_features(seq):
     # single nucleotides 
     for pos in range(20):
         nuc = seq[pos]
-        for b in all_nucs:
+        for b in ALL_NUCS:
             feature_labels.append(f'{b} at pos {pos+1}')
             features.append(1 if nuc == b else 0)
     
     return features, feature_labels
 
+# Create feature array from a given 20nt sequence
 def featurize_20nt_target(target_seq):
     feature_labels = []
     features = []
         
     # target base counts
-    for nuc in all_nucs:
+    for nuc in ALL_NUCS:
         feature_labels.append(f'{nuc} count')
         features.append(sum([n == nuc for n in target_seq]))
 
@@ -127,6 +119,7 @@ def featurize_20nt_target(target_seq):
 
     return feature_labels, features
 
+# Scale z-scores for each position to match the given mean & std dev of editing rate
 def scale_zscores(zscores, pos_list, mean, std):
     scaled = []
     for z, pos in zip(zscores, pos_list):
@@ -140,7 +133,10 @@ def scale_zscores(zscores, pos_list, mean, std):
         scaled.append(s)
     return scaled
 
-
+# For a given sequence and editor type, predict the editing rate at each position 
+# Defaults to CBE if no editor provided
+# By default, predicts the z-score for the position
+# If mean and std provided, then scales the z-score to provide real editing rates between 0-1
 def predict(target_seq, mean=None, std=None, editor=None):
     if len(target_seq) != 20:
         raise ValueError(f'Input sequence is {len(target_seq)}, but require 20')
@@ -169,6 +165,9 @@ def predict(target_seq, mean=None, std=None, editor=None):
     ret = [(pos, pred) if target_seq[pos-1] == target_base else (pos, None) for pos, pred in zip(pos_list, predictions)]
     return ret
 
+# For a given sequence predict the total rate of editing (fraction of edited reads)
+# By default, predicts a z-score
+# If mean and std provided, then scales the z-score to provide the real editing rate between 0-1
 def predict_total(target_seq, mean=None, std=None, editor=None):
     if len(target_seq) != 20:
         raise ValueError(f'Input sequence is {len(target_seq)}, but require 20')
@@ -190,15 +189,16 @@ def predict_total(target_seq, mean=None, std=None, editor=None):
 
     return prediction
 
-
-
+# Take a fasta file as input and generate positional predictions for each sequence in the file
+# Defaults to CBE if no editor provided
+# By default, predicts the z-score for the position
+# If mean and std provided, then scales the z-score to provide real editing rates between 0-1
 def predict_batch_fasta(fasta_path, output_path=None, mean=None, std=None, editor=None):
     # Get models for editor
     if editor is None:
         editor = 'CBE'
     elif editor not in POS_MODELS:
         raise ValueError(f'Unknown editor: {editor}')
-    pos_models = POS_MODELS[editor]['pos_models']
     pos_list = POS_MODELS[editor]['pos_list']
 
     # Predict per position for each guide
